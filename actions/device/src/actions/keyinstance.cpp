@@ -19,11 +19,8 @@
 */
 
 #include "keyinstance.hpp"
-#include "actiontools/keyinput.hpp"
-
-#ifdef Q_OS_WIN
-#include <Windows.h>
-#endif
+#include "backend/keyinput.hpp"
+#include "backend/keyboard.hpp"
 
 #include <QTimer>
 
@@ -56,7 +53,7 @@ namespace Actions
     };
 
 	KeyInstance::KeyInstance(const ActionTools::ActionDefinition *definition, QObject *parent)
-		: ActionTools::ActionInstance(definition, parent),
+        : ActionTools::ActionInstance(definition, parent),
 		  mCtrl(false),
 		  mAlt(false),
 		  mShift(false),
@@ -70,6 +67,8 @@ namespace Actions
 
 	void KeyInstance::startExecution()
 	{
+        auto &keyboard = Backend::Instance::keyboard();
+
 		bool ok = true;
 
 		mKey = evaluateString(ok, QStringLiteral("key"), QStringLiteral("key"));
@@ -80,6 +79,7 @@ namespace Actions
 		mShift = evaluateBoolean(ok, QStringLiteral("shift"));
 		mMeta = evaluateBoolean(ok, QStringLiteral("meta"));
 		Type type = evaluateListElement<Type>(ok, types, QStringLiteral("type"));
+        mDirectX = (type == DirectXType);
 		mPause  = evaluateInteger(ok, QStringLiteral("pause"));
 
 		if(mPause < 0)
@@ -98,37 +98,35 @@ namespace Actions
 			return;
 		}
 
-		mKeyboardDevice.setType(static_cast<KeyboardDevice::Type>(type));
+        try
+        {
+            switch(action)
+            {
+            case PressAction:
+                pressOrReleaseModifiers(true);
 
-		bool result = true;
+                keyboard.pressKey(mKey, true, mDirectX);
+                break;
+            case ReleaseAction:
+                pressOrReleaseModifiers(false);
 
-		switch(action)
-		{
-		case PressAction:
-			pressOrReleaseModifiers(true);
+                keyboard.pressKey(mKey, false, mDirectX);
+                break;
+            case PressReleaseAction:
+                pressOrReleaseModifiers(true);
 
-			result &= mKeyboardDevice.pressKey(mKey);
-			break;
-		case ReleaseAction:
-			pressOrReleaseModifiers(false);
+                keyboard.pressKey(mKey, true, mDirectX);
 
-			result &= mKeyboardDevice.releaseKey(mKey);
-			break;
-		case PressReleaseAction:
-			pressOrReleaseModifiers(true);
-
-			result &= mKeyboardDevice.pressKey(mKey);
-
-			mTimer->setSingleShot(true);
-			mTimer->start(mPause);
-			break;
-		}
-
-		if(!result)
-		{
-			emit executionException(FailedToSendInputException, tr("Unable to emulate key: failed to send input"));
-			return;
-		}
+                mTimer->setSingleShot(true);
+                mTimer->start(mPause);
+                break;
+            }
+        }
+        catch(const Backend::BackendError &e)
+        {
+            emit executionException(FailedToSendInputException, e.what());
+            return;
+        }
 
 		if(action != PressReleaseAction)
 			executionEnded();
@@ -139,63 +137,81 @@ namespace Actions
 		mTimer->stop();
 	}
 
-	void KeyInstance::stopLongTermExecution()
-	{
-		mKeyboardDevice.reset();
-	}
-
 	void KeyInstance::sendRelease()
 	{
+        auto &keyboard = Backend::Instance::keyboard();
+
 		pressOrReleaseModifiers(false);
-		mKeyboardDevice.releaseKey(mKey);
+
+        try
+        {
+            keyboard.pressKey(mKey, false, mDirectX);
+        }
+        catch(const Backend::BackendError &e)
+        {
+            emit executionException(FailedToSendInputException, e.what());
+            return;
+        }
 
 		--mAmount;
 		if (mAmount > 0)
-			emit sendPressKey();
+            sendPressKey();
 		else
 			executionEnded();
 	}
 
 	void KeyInstance::sendPressKey()
 	{
-		bool result = true;
+        auto &keyboard = Backend::Instance::keyboard();
 
 		pressOrReleaseModifiers(true);
 
-		result &= mKeyboardDevice.pressKey(mKey);
-
-		if(!result)
-		{
-			emit executionException(FailedToSendInputException, tr("Unable to emulate key: failed to send input"));
-			return;
-		}
+        try
+        {
+            keyboard.pressKey(mKey, true, mDirectX);
+        }
+        catch(const Backend::BackendError &e)
+        {
+            emit executionException(FailedToSendInputException, e.what());
+            return;
+        }
 
 		mTimer->start(mPause);
 	}
 
 	void KeyInstance::pressOrReleaseModifiers(bool press)
 	{
-		if(press)
-		{
-			if(mCtrl)
-				mKeyboardDevice.pressKey(QStringLiteral("controlLeft"));
-			if(mAlt)
-				mKeyboardDevice.pressKey(QStringLiteral("altLeft"));
-			if(mShift)
-				mKeyboardDevice.pressKey(QStringLiteral("shiftLeft"));
-			if(mMeta)
-				mKeyboardDevice.pressKey(QStringLiteral("metaLeft"));
-		}
-		else
-		{
-			if(mCtrl)
-				mKeyboardDevice.releaseKey(QStringLiteral("controlLeft"));
-			if(mAlt)
-				mKeyboardDevice.releaseKey(QStringLiteral("altLeft"));
-			if(mShift)
-				mKeyboardDevice.releaseKey(QStringLiteral("shiftLeft"));
-			if(mMeta)
-				mKeyboardDevice.releaseKey(QStringLiteral("metaLeft"));
-		}
+        auto &keyboard = Backend::Instance::keyboard();
+
+        try
+        {
+            if(press)
+            {
+                if(mCtrl)
+                    keyboard.pressKey(QStringLiteral("controlLeft"), true, mDirectX);
+                if(mAlt)
+                    keyboard.pressKey(QStringLiteral("altLeft"), true, mDirectX);
+                if(mShift)
+                    keyboard.pressKey(QStringLiteral("shiftLeft"), true, mDirectX);
+                if(mMeta)
+                    keyboard.pressKey(QStringLiteral("metaLeft"), true, mDirectX);
+            }
+            else
+            {
+                if(mCtrl)
+                    keyboard.pressKey(QStringLiteral("controlLeft"), false, mDirectX);
+                if(mAlt)
+                    keyboard.pressKey(QStringLiteral("altLeft"), false, mDirectX);
+                if(mShift)
+                    keyboard.pressKey(QStringLiteral("shiftLeft"), false, mDirectX);
+                if(mMeta)
+                    keyboard.pressKey(QStringLiteral("metaLeft"), false, mDirectX);
+            }
+        }
+        catch(const Backend::BackendError &e)
+        {
+            emit executionException(FailedToSendInputException, e.what());
+            return;
+        }
 	}
 }

@@ -32,9 +32,6 @@ set(SOURCES
     ${SOURCES_PREFIX}/settingsdialog.cpp
     ${SOURCES_PREFIX}/settingskeyedit.cpp
     ${SOURCES_PREFIX}/sfxscriptdialog.cpp
-    ${SOURCES_PREFIX}/QHotkey/qhotkey.cpp
-    $<$<PLATFORM_ID:Windows>:${SOURCES_PREFIX}/QHotkey/qhotkey_win.cpp>
-    $<$<PLATFORM_ID:Linux>:${SOURCES_PREFIX}/QHotkey/qhotkey_x11.cpp>
 )
 
 set(HEADERS_PREFIX src)
@@ -71,12 +68,11 @@ set(HEADERS
     ${HEADERS_PREFIX}/settingsdialog.hpp
     ${HEADERS_PREFIX}/settingskeyedit.hpp
     ${HEADERS_PREFIX}/sfxscriptdialog.hpp
-    ${HEADERS_PREFIX}/QHotkey/qhotkey.h
-    ${HEADERS_PREFIX}/QHotkey/qhotkey_p.h
 )
 
 set(QRC ${PROJECT}.qrc)
 
+#TODO: add UI files
 add_executable(${PROJECT}
     ${SOURCES}
     ${HEADERS}
@@ -85,45 +81,57 @@ add_executable(${PROJECT}
 
 add_dependencies(${PROJECT} execution actiontools tools)
 
-if(UNIX)
+if(UNIX AND NOT APPLE)
     include(FindPkgConfig)
     pkg_search_module(LIBNOTIFY REQUIRED libnotify)
-    pkg_search_module(LIBX11 REQUIRED x11)
 endif()
 
 set_target_properties(${PROJECT} PROPERTIES OUTPUT_NAME "actiona")
 set_target_properties(${PROJECT} PROPERTIES SUFFIX "")
 set_target_properties(${PROJECT} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/..)
 set(CMAKE_EXECUTABLE_SUFFIX "")
+set(QAPPLICATION_CLASS QApplication CACHE STRING "Inheritance class for SingleApplication")
+
+add_subdirectory(src/3rdparty/singleapplication)
+add_subdirectory(src/3rdparty/qhotkey)
 
 setup_target(${PROJECT})
 
 find_package(Qt5 ${ACT_MINIMUM_QT_VERSION} COMPONENTS Network Script Widgets REQUIRED)
 
+if(UNIX AND NOT APPLE)
+    find_package(X11)
+endif()
+
 target_include_directories(${PROJECT}
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/3rdparty
+        ${CMAKE_CURRENT_SOURCE_DIR}/../backend/include
         ${CMAKE_CURRENT_SOURCE_DIR}/../tools/include
         ${CMAKE_CURRENT_SOURCE_DIR}/../actiontools/include
         ${CMAKE_CURRENT_SOURCE_DIR}/../execution/include
         ${LIBNOTIFY_INCLUDE_DIRS}
-        ${LIBX11_INCLUDE_DIRS}
+        ${X11_INCLUDE_DIR}
 )
 
 target_link_libraries(
     ${PROJECT}
-    execution
-    actiontools
+    backend
     tools
+    actiontools
+    execution
     Qt5::Network
     Qt5::Script
     Qt5::Widgets
+    SingleApplication::SingleApplication
+    qhotkey
     ${LIBNOTIFY_LIBRARIES}
-    ${LIBX11_LIBRARIES}
+    ${X11_LIBRARIES}
     $<$<PLATFORM_ID:Windows>:shlwapi>
 )
 
-if(UNIX)
+if(UNIX AND NOT APPLE)
     find_package(Qt5 ${ACT_MINIMUM_QT_VERSION} COMPONENTS X11Extras REQUIRED)
     target_link_libraries(${PROJECT} Qt5::X11Extras)
 endif()

@@ -45,6 +45,8 @@ namespace Actions
 
             auto &positionOffset = addParameter<ActionTools::PositionParameterDefinition>({QStringLiteral("positionOffset"), tr("Offset")}, 1);
             positionOffset.setTooltip(tr("The offset to apply to the cursor movement"));
+
+            addException(MoveCursorInstance::FailedToSendInputException, tr("Send input failure"));
 		}
 	
 		QString name() const override													{ return QObject::tr("Move cursor"); }
@@ -54,7 +56,6 @@ namespace Actions
 		ActionTools::ActionInstance *newActionInstance() const override					{ return new MoveCursorInstance(this); }
 		ActionTools::ActionCategory category() const override							{ return ActionTools::Device; }
 		QPixmap icon() const override													{ return QPixmap(QStringLiteral(":/actions/icons/movecursor.png")); }
-		bool requirementCheck(QStringList &missingRequirements) const override			{ return requirementCheckXTest(missingRequirements); }
 		QStringList tabs() const override												{ return ActionDefinition::StandardTabs; }
 
 	private:

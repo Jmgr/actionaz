@@ -19,6 +19,7 @@
 */
 
 #include "keyboard.hpp"
+#include "backend/keyboard.hpp"
 
 namespace Code
 {
@@ -34,32 +35,66 @@ namespace Code
 	
 	QScriptValue Keyboard::pressKey(const QString &key)
 	{
-		if(!mKeyboardDevice.pressKey(key))
-			throwError(QStringLiteral("PressKeyError"), tr("Unable to press the key"));
+        auto &keyboard = Backend::Instance::keyboard();
+
+        try
+        {
+            keyboard.pressKey(key, true, false);
+        }
+        catch(const Backend::BackendError &e)
+        {
+            throwError(QStringLiteral("KeyboardError"), e.what());
+        }
 		
 		return thisObject();
 	}
 	
 	QScriptValue Keyboard::releaseKey(const QString &key)
 	{
-		if(!mKeyboardDevice.releaseKey(key))
-			throwError(QStringLiteral("ReleaseKeyError"), tr("Unable to release the key"));
+        auto &keyboard = Backend::Instance::keyboard();
+
+        try
+        {
+            keyboard.pressKey(key, false, false);
+        }
+        catch(const Backend::BackendError &e)
+        {
+            throwError(QStringLiteral("KeyboardError"), e.what());
+        }
 		
 		return thisObject();
 	}
 	
 	QScriptValue Keyboard::triggerKey(const QString &key)
 	{
-		if(!mKeyboardDevice.triggerKey(key))
-			throwError(QStringLiteral("TriggerKeyError"), tr("Unable to trigger the key"));
+        auto &keyboard = Backend::Instance::keyboard();
+
+        try
+        {
+            keyboard.pressKey(key, true, false);
+            keyboard.pressKey(key, false, false);
+        }
+        catch(const Backend::BackendError &e)
+        {
+            throwError(QStringLiteral("KeyboardError"), e.what());
+        }
 		
 		return thisObject();
 	}
 	
     QScriptValue Keyboard::writeText(const QString &text, int delay, bool noUnicodeCharacters) const
 	{
-        if(!mKeyboardDevice.writeText(text, delay, noUnicodeCharacters))
-			throwError(QStringLiteral("WriteTextError"), tr("Unable to write the text"));
+        auto &keyboard = Backend::Instance::keyboard();
+
+        try
+        {
+            keyboard.writeText(text, delay, noUnicodeCharacters);
+        }
+        catch(const Backend::BackendError &e)
+        {
+            throwError(QStringLiteral("KeyboardError"), e.what());
+        }
+
 		
 		return thisObject();
 	}

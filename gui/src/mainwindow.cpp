@@ -33,12 +33,11 @@
 #include "settingsdialog.hpp"
 #include "actiontools/settings.hpp"
 #include "scriptparametersdialog.hpp"
-#include "actiontools/crossplatform.hpp"
 #include "execution/execution.hpp"
 #include "newactiondialog.hpp"
 #include "scriptcontentdialog.hpp"
 #include "actiontools/keywords.hpp"
-#include "QHotkey/QHotkey"
+#include "qhotkey/QHotkey/QHotkey"
 #ifdef ACT_UPDATER
 #include "changelogdialog.hpp"
 #include "tools/updater.hpp"
@@ -56,6 +55,7 @@
 #include "newactionproxymodel.hpp"
 #include "scriptproxymodel.hpp"
 #include "tools/languages.hpp"
+#include "backend/windowing.hpp"
 
 #ifdef ACT_PROFILE
 #include "tools/highresolutiontimer.hpp"
@@ -427,11 +427,18 @@ void MainWindow::postInit()
 		mSplashScreen = nullptr;
 	}
 
-#ifdef Q_OS_UNIX
-	ActionTools::CrossPlatform::setForegroundWindow(this);
-#endif
-
 	setCurrentFile(QString());
+
+#ifdef Q_OS_UNIX
+    try
+    {
+        Backend::Instance::windowing().setForegroundWindow(winId());
+    }
+    catch(const Backend::BackendError &e)
+    {
+        // ignore errors here
+    }
+#endif
 
     QApplication::processEvents();
 
@@ -1167,22 +1174,30 @@ void MainWindow::on_scriptFilterCriteriaFlagsComboBox_flagsChanged(unsigned int 
 
 void MainWindow::systemTrayIconActivated(QSystemTrayIcon::ActivationReason reason)
 {
-	if(reason == QSystemTrayIcon::DoubleClick)
-	{
-		switch(windowState())
-		{
-			case Qt::WindowNoState:
-			case Qt::WindowMaximized:
-			case Qt::WindowFullScreen:
-			case Qt::WindowActive:
-				showMinimized();
-				break;
-			case Qt::WindowMinimized:
-				showNormal();
-				ActionTools::CrossPlatform::setForegroundWindow(this);
-				break;
-		}
-	}
+    if(reason == QSystemTrayIcon::DoubleClick)
+    {
+        switch(windowState())
+        {
+        case Qt::WindowNoState:
+        case Qt::WindowMaximized:
+        case Qt::WindowFullScreen:
+        case Qt::WindowActive:
+            showMinimized();
+            break;
+        case Qt::WindowMinimized:
+            showNormal();
+            try
+            {
+                Backend::Instance::windowing().setForegroundWindow(winId());
+            }
+            catch(const Backend::BackendError &)
+            {
+                // ignore errors here
+            }
+
+            break;
+        }
+    }
 }
 
 void MainWindow::scriptEdited()
@@ -1886,21 +1901,30 @@ void MainWindow::logItemClicked(int itemRow)
 	logItemClicked(itemRow, false);
 }
 
-void MainWindow::otherInstanceMessage(const QString &message)
+void MainWindow::otherInstanceMessage(quint32 instanceId, QByteArray message)
 {
+    Q_UNUSED(instanceId)
+
 	if(!mCurrentFile.isEmpty() && !ui->actionExecute->isEnabled()) // Executing
 		return;
 
 	if(!message.isEmpty())
 	{
-		QFileInfo fileInfo(message);
+        QFileInfo fileInfo(QString::fromUtf8(message));
 
 		if(fileInfo.isFile() && fileInfo.isReadable())
 		{
 			if(maybeSave())
-				loadFile(message);
+                loadFile(QString::fromUtf8(message));
 
-			emit needToShow();
+            try
+            {
+                Backend::Instance::windowing().setForegroundWindow(winId());
+            }
+            catch(const Backend::BackendError &)
+            {
+                // ignore errors here
+            }
 		}
     }
 }

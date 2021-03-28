@@ -1,3 +1,12 @@
 [submodule "actions/data/src/3rdparty/mINI"]
 	path = actions/data/src/3rdparty/mINI
 	url = https://github.com/pulzed/mINI.git
+[submodule "backend/include/backend/3rdparty/scope_guard"]
+	path = backend/include/backend/3rdparty/scope_guard
+	url = https://github.com/ricab/scope_guard.git
+[submodule "gui/src/3rdparty/singleapplication"]
+	path = gui/src/3rdparty/singleapplication
+	url = https://github.com/itay-grudev/SingleApplication.git
+[submodule "gui/src/3rdparty/qhotkey"]
+	path = gui/src/3rdparty/qhotkey
+	url = https://github.com/Skycoder42/QHotkey.git

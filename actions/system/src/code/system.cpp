@@ -20,7 +20,7 @@
 
 #include "system.hpp"
 #include "actiontools/code/rect.hpp"
-#include "../systemsession.hpp"
+#include "backend/system.hpp"
 
 #include <QStandardPaths>
 #include "systeminfo/qdeviceinfo.h"
@@ -36,11 +36,6 @@
 #include <cstdlib>
 #include <QScreen>
 
-#ifdef Q_OS_WIN
-#include <Windows.h>
-#include <LMCons.h>
-#endif
-
 namespace Code
 {
 	QScriptValue System::constructor(QScriptContext *context, QScriptEngine *engine)
@@ -49,17 +44,15 @@ namespace Code
 	}
 
 	System::System()
-		: CodeClass(),
-        mSystemSession(new SystemSession)
-        , mDeviceInfo(new QDeviceInfo(this)),
+        : CodeClass(),
+        mDeviceInfo(new QDeviceInfo(this)),
         mBatteryInfo(new QBatteryInfo(this)),
         mStorageInfo(new QStorageInfo_Custom(this))
 	{
 	}
 
 	System::~System()
-	{
-		delete mSystemSession;
+    {
 	}
 
 	QString System::storageLocationPath(StorageLocation location) const
@@ -131,20 +124,20 @@ namespace Code
 
 	QString System::username() const
 	{
-    #ifdef Q_OS_WIN
-		TCHAR buffer[UNLEN+1];
-		DWORD size = sizeof(buffer);
-		GetUserName(buffer, &size);
-
-		return QString::fromWCharArray(buffer);
-	#else
-        return QString::fromLatin1(std::getenv("USER"));
-	#endif
+        try
+        {
+            return Backend::Instance::system().getUsername();
+        }
+        catch(const Backend::BackendError &)
+        {
+            // ignore errors
+            return {};
+        }
 	}
 
 	QString System::variable(const QString &name) const
 	{
-		return QString::fromLatin1(std::getenv(name.toLatin1().constData()));
+        return qEnvironmentVariable(name.toLocal8Bit().constData());
 	}
 
     qint64 System::timestamp() const
@@ -158,6 +151,8 @@ namespace Code
 		return QStringLiteral("GNU/Linux");
 #elif defined(Q_OS_WIN)
 		return QStringLiteral("Windows");
+#elif defined(Q_OS_MACOS)
+        return QStringLiteral("macOS");
 #else
         return QStringLiteral("Unknown");
 #endif
@@ -276,56 +271,98 @@ namespace Code
 
 	QScriptValue System::logout(bool force) const
 	{
-		if(!mSystemSession->logout(force))
-			throwError(QStringLiteral("LogoutError"), tr("Logout failed"));
+        try
+        {
+            Backend::Instance::system().logout(force);
+        }
+        catch(const Backend::BackendError &e)
+        {
+            throwError(QStringLiteral("LogoutError"), tr("Logout failed: %1").arg(e.what()));
+        }
 
 		return thisObject();
 	}
 
 	QScriptValue System::restart(bool force) const
 	{
-		if(!mSystemSession->restart(force))
-			throwError(QStringLiteral("RestartError"), tr("Restart failed"));
+        try
+        {
+            Backend::Instance::system().restart(force);
+        }
+        catch(const Backend::BackendError &e)
+        {
+            throwError(QStringLiteral("RestartError"), tr("Restart failed: %1").arg(e.what()));
+        }
 
 		return thisObject();
 	}
 
 	QScriptValue System::shutdown(bool force) const
 	{
-		if(!mSystemSession->shutdown(force))
-			throwError(QStringLiteral("ShutdownError"), tr("Shutdown failed"));
+        try
+        {
+            Backend::Instance::system().shutdown(force);
+        }
+        catch(const Backend::BackendError &e)
+        {
+            throwError(QStringLiteral("ShutdownError"), tr("Shutdown failed: %1").arg(e.what()));
+        }
 
 		return thisObject();
 	}
 
 	QScriptValue System::suspend(bool force) const
 	{
-		if(!mSystemSession->suspend(force))
-			throwError(QStringLiteral("SuspendError"), tr("Suspend failed"));
+        try
+        {
+            Backend::Instance::system().suspend(force);
+        }
+        catch(const Backend::BackendError &e)
+        {
+            throwError(QStringLiteral("SuspendError"), tr("Suspend failed: %1").arg(e.what()));
+        }
 
 		return thisObject();
 	}
 
 	QScriptValue System::hibernate(bool force) const
 	{
-		if(!mSystemSession->hibernate(force))
-			throwError(QStringLiteral("HibernateError"), tr("Hibernate failed"));
+        try
+        {
+            Backend::Instance::system().hibernate(force);
+        }
+        catch(const Backend::BackendError &e)
+        {
+            throwError(QStringLiteral("HibernateError"), tr("Hibernate failed: %1").arg(e.what()));
+        }
 
 		return thisObject();
 	}
 
 	QScriptValue System::lockScreen() const
 	{
-		if(!mSystemSession->lockScreen())
-			throwError(QStringLiteral("LockScreenError"), tr("Lock screen failed"));
+        try
+        {
+            Backend::Instance::system().lockScreen();
+        }
+        catch(const Backend::BackendError &e)
+        {
+            throwError(QStringLiteral("LockScreenError"), tr("Lock screen failed: %1").arg(e.what()));
+        }
 
 		return thisObject();
 	}
 
 	QScriptValue System::startScreenSaver() const
 	{
-		if(!mSystemSession->startScreenSaver())
-			throwError(QStringLiteral("StartScreenSaverError"), tr("Start screen saver failed"));
+        try
+        {
+            Backend::Instance::system().startScreenSaver();
+        }
+        catch(const Backend::BackendError &e)
+        {
+            throwError(QStringLiteral("StartScreenSaverError"), tr("Start screen saver failed: %1").arg(e.what()));
+        }
 
 		return thisObject();
 	}

@@ -76,8 +76,10 @@ namespace Actions
 			auto &shift = addParameter<ActionTools::BooleanParameterDefinition>({QStringLiteral("shift"), tr("Shift")});
             shift.setTooltip(tr("Should the Shift key be pressed"));
 
-		#ifdef Q_OS_WIN
+        #if defined(Q_OS_WIN)
 			QString metaKeyName = tr("Windows");
+        #elif defined(Q_OS_MACOS)
+            QString metaKeyName = tr("Command");
 		#else
 			QString metaKeyName = tr("Meta");
 		#endif
@@ -109,7 +111,6 @@ namespace Actions
 		ActionTools::ActionInstance *newActionInstance() const override					{ return new KeyInstance(this); }
 		ActionTools::ActionCategory category() const override							{ return ActionTools::Device; }
 		QPixmap icon() const override													{ return QPixmap(QStringLiteral(":/actions/icons/key.png")); }
-		bool requirementCheck(QStringList &missingRequirements) const override			{ return requirementCheckXTest(missingRequirements); }
 		QStringList tabs() const override												{ return ActionDefinition::StandardTabs; }
 
 	private:

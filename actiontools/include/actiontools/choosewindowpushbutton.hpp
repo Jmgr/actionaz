@@ -21,65 +21,34 @@
 #pragma once
 
 #include "actiontools_global.hpp"
-#include "windowhandle.hpp"
 
-#include <QAbstractNativeEventFilter>
 #include <QPushButton>
 
-class QMainWindow;
+namespace Backend
+{
+    class WindowChooser;
+}
 
 namespace ActionTools
 {
-    class ACTIONTOOLSSHARED_EXPORT ChooseWindowPushButton : public QPushButton, public QAbstractNativeEventFilter
+    class WindowHandle;
+
+    class ACTIONTOOLSSHARED_EXPORT ChooseWindowPushButton : public QPushButton
 	{
 		Q_OBJECT
+        Q_DISABLE_COPY(ChooseWindowPushButton)
 
 	public:
 		explicit ChooseWindowPushButton(QWidget *parent = nullptr);
         ~ChooseWindowPushButton() override;
 
 	signals:
-        void foundValidWindow(const ActionTools::WindowHandle &handle);
         void searchEnded(const ActionTools::WindowHandle &handle);
+        void canceled();
+        void errorOccurred(const QString error);
 
 	private:
-        void paintEvent(QPaintEvent *event) override;
-        void mousePressEvent(QMouseEvent *event) override;
-#ifdef Q_OS_WIN
-		void mouseReleaseEvent(QMouseEvent *event);
-
-		void foundWindow(const WindowHandle &handle);
-#endif
-		bool isWindowValid(const WindowHandle &handle) const;
-
-#ifdef Q_OS_WIN
-		void refreshWindow(const WindowHandle &handle);
-		void highlightWindow(const WindowHandle &handle);
-#endif
-
-		void startMouseCapture();
-		void stopMouseCapture();
-
-#ifdef Q_OS_UNIX
-		WId windowAtPointer() const;
-#endif
-
-        bool nativeEventFilter(const QByteArray &eventType, void *message, long *result) override;
-
-		QPixmap *mCrossIcon;
-		WindowHandle mLastFoundWindow;
-		bool mSearching{false};
-		QMainWindow *mMainWindow{nullptr};
-#ifdef Q_OS_UNIX
-        QList<QWidget*> mShownWindows;
-        unsigned long mCrossCursor;
-#endif
-#ifdef Q_OS_WIN
-		HCURSOR mPreviousCursor;
-		HPEN	mRectanglePen;
-#endif
-
-		Q_DISABLE_COPY(ChooseWindowPushButton)
+        Backend::WindowChooser *mChooser;
 	};
 }
 

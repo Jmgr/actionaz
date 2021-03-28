@@ -20,6 +20,7 @@
 
 #include <QtGlobal>
 
+#include "backend/backend.hpp"
 #include "mainwindow.hpp"
 #include "actiontools/actioninstance.hpp"
 #include "actiontools/parameter.hpp"
@@ -28,7 +29,7 @@
 #include "global.hpp"
 #include "progresssplashscreen.hpp"
 #include "tools/languages.hpp"
-#include "actiontools/qtsingleapplication/QtSingleApplication"
+#include "singleapplication/SingleApplication"
 
 #ifdef ACT_PROFILE
 #include "tools/highresolutiontimer.hpp"
@@ -48,12 +49,6 @@
 #undef signals
 #include <libnotify/notify.h>
 #define signals
-
-#include "actiontools/keysymhelper.hpp"
-#endif
-
-#ifdef Q_OS_WIN
-#include <Windows.h>
 #endif
 
 static void cleanup()
@@ -69,7 +64,7 @@ int main(int argc, char **argv)
     Tools::HighResolutionTimer timer(QStringLiteral("Application run"));
 #endif
 
-	QtSingleApplication app(QStringLiteral("actiona-gui"), argc, argv);
+    SingleApplication app(argc, argv);
 
 	app.setQuitOnLastWindowClosed(false);
 
@@ -79,6 +74,9 @@ int main(int argc, char **argv)
 	app.setApplicationVersion(Global::ACTIONA_VERSION.toString() + QStringLiteral(", script ") + Global::SCRIPT_VERSION.toString());
 
 	qAddPostRoutine(cleanup);
+
+    // Initialize the backend
+    Backend::Instance::initialize();
 
 	QCommandLineParser optionsParser;
 	optionsParser.setApplicationDescription(QObject::tr("Emulates clics, key presses and other actions."));
@@ -135,14 +133,14 @@ int main(int argc, char **argv)
 		QFileInfo absoluteFileInfo(startScript);
 		if(absoluteFileInfo.isFile() && absoluteFileInfo.isReadable())
 		{
-			if(app.sendMessage(absoluteFileInfo.absoluteFilePath()))
+            if(app.sendMessage(absoluteFileInfo.absoluteFilePath().toUtf8()))
 				return 0;
 		}
 
 		QFileInfo relativeFileInfo(QDir::current().filePath(startScript));
 		if(relativeFileInfo.isFile() && relativeFileInfo.isReadable())
 		{
-			if(app.sendMessage(absoluteFileInfo.absoluteFilePath()))
+            if(app.sendMessage(absoluteFileInfo.absoluteFilePath().toUtf8()))
 				return 0;
 		}
 	 }
@@ -171,15 +169,6 @@ int main(int argc, char **argv)
 	qRegisterMetaTypeStreamOperators<ActionTools::ActionInstanceBuffer>("ActionInstanceBuffer");
 	qRegisterMetaTypeStreamOperators<QVersionNumber>("Version");
 
-#ifdef Q_OS_UNIX
-	{
-#ifdef ACT_PROFILE
-        Tools::HighResolutionTimer timer(QStringLiteral("Load key codes"));
-#endif
-		ActionTools::KeySymHelper::loadKeyCodes();
-	}
-#endif
-
 	ProgressSplashScreen *splash = nullptr;
 	if(!optionsParser.isSet(QStringLiteral("nosplash")) && !optionsParser.isSet(QStringLiteral("execute")))
 	{
@@ -207,11 +196,7 @@ int main(int argc, char **argv)
 
 	MainWindow mainWindow(optionsParser, splash, startScript, locale);
 
-	QObject::connect(&app, &QtSingleApplication::messageReceived, &mainWindow, &MainWindow::otherInstanceMessage);
-
-	app.setActivationWindow(&mainWindow);
-
-	QObject::connect(&mainWindow, &MainWindow::needToShow, &app, &QtSingleApplication::activateWindow);
+    QObject::connect(&app, &SingleApplication::receivedMessage, &mainWindow, &MainWindow::otherInstanceMessage);
 
 	if(!optionsParser.isSet(QStringLiteral("execute")))
 		mainWindow.show();

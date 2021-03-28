@@ -21,7 +21,6 @@
 #pragma once
 
 #include "actiontools/actioninstance.hpp"
-#include "../keyboarddevice.hpp"
 #include "tools/stringlistpair.hpp"
 
 class QTimer;
@@ -57,7 +56,6 @@ namespace Actions
 
 		void startExecution() override;
 		void stopExecution() override;
-		void stopLongTermExecution() override;
 
 	private slots:
 		void sendRelease();
@@ -66,7 +64,6 @@ namespace Actions
 	private:
 		void pressOrReleaseModifiers(bool press);
 
-		KeyboardDevice mKeyboardDevice;
 		QString mKey;
 		bool mCtrl;
 		bool mAlt;
@@ -75,6 +72,7 @@ namespace Actions
 		int  mAmount;
 		int  mPause;
 		QTimer *mTimer;
+        bool mDirectX;
 
 		Q_DISABLE_COPY(KeyInstance)
 	};

@@ -20,14 +20,9 @@
 
 #include "actiontools/code/processhandle.hpp"
 #include "actiontools/code/codetools.hpp"
+#include "backend/process.hpp"
 
 #include <QProcess>
-
-#ifdef Q_OS_WIN
-#include <Windows.h>
-#include <Psapi.h>
-#include <TlHelp32.h>
-#endif
 
 namespace Code
 {
@@ -167,139 +162,66 @@ namespace Code
 
     int ProcessHandle::parentId() const
     {
-#ifdef Q_OS_WIN
-        HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-        if(!snapshot)
+        try
         {
-			throwError(QStringLiteral("CreateSnapshotError"), tr("Unable to create a snapshot"));
+            return Backend::Instance::process().parentProcess(mProcessId);
+        }
+        catch(const Backend::BackendError &e)
+        {
+            throwError(QStringLiteral("GetProcessParentError"), tr("Failed to get the process parent id: %1").arg(e.what()));
             return 0;
         }
-
-        PROCESSENTRY32 processEntry;
-        ZeroMemory(&processEntry, sizeof(processEntry));
-        processEntry.dwSize = sizeof(processEntry);
-
-        if(!Process32First(snapshot, &processEntry))
-        {
-            CloseHandle(snapshot);
-
-			throwError(QStringLiteral("GetFirstProcessError"), tr("Unable to get the first process"));
-            return 0;
-        }
-
-        do
-        {
-            if(processEntry.th32ProcessID == id())
-            {
-                CloseHandle(snapshot);
-
-                return processEntry.th32ParentProcessID;
-            }
-        }
-        while(Process32Next(snapshot, &processEntry));
-
-        CloseHandle(snapshot);
-
-        return 0;
-#else
-        QProcess process;
-        process.start(QStringLiteral("ps"), {QStringLiteral("h") , QStringLiteral("-p %1").arg(id()), QStringLiteral("-oppid")}, QIODevice::ReadOnly);
-        if(!process.waitForStarted(2000) || !process.waitForReadyRead(2000) || !process.waitForFinished(2000) || process.exitCode() != 0)
-        {
-			throwError(QStringLiteral("GetProcessError"), tr("Failed to get the process parent id"));
-            return 0;
-        }
-
-        bool ok = true;
-        int result = process.readAll().trimmed().toInt(&ok);
-
-        if(!ok)
-        {
-			throwError(QStringLiteral("GetProcessError"), tr("Failed to get the process parent id"));
-            return 0;
-        }
-
-        return result;
-#endif
     }
 	
 	bool ProcessHandle::kill(KillMode killMode, int timeout) const
 	{
-		return ActionTools::CrossPlatform::killProcess(mProcessId, static_cast<ActionTools::CrossPlatform::KillMode>(killMode), timeout);
+        try
+        {
+            Backend::Instance::process().killProcess(mProcessId, static_cast<Backend::Process::KillMode>(killMode), timeout);
+        }
+        catch(const Backend::BackendError &)
+        {
+            return false;
+        }
+
+        return true;
 	}
 	
 	bool ProcessHandle::isRunning() const
 	{
-		return (ActionTools::CrossPlatform::processStatus(mProcessId) == ActionTools::CrossPlatform::Running);
+        try
+        {
+            return (Backend::Instance::process().processStatus(mProcessId) == Backend::Process::ProcessStatus::Running);
+        }
+        catch(const Backend::BackendError &)
+        {
+            return false;
+        }
 	}
 
 	QString ProcessHandle::command() const
 	{
-#ifdef Q_OS_WIN
-		HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, id());
-		if(!process)
-		{
-			throwError(QStringLiteral("OpenProcessError"), tr("Unable to open the process"));
-			return QString();
-		}
-
-		TCHAR buffer[256];
-		if(!GetModuleFileNameEx(process, NULL, buffer, 256))
-		{
-			throwError(QStringLiteral("GetModuleFilenameError"), tr("Unable to retrieve the executable filename"));
-			return QString();
-		}
-
-		CloseHandle(process);
-
-		return QString::fromWCharArray(buffer);
-#else
-		QProcess process;
-        process.start(QStringLiteral("ps"), {QStringLiteral("h"), QStringLiteral("-p %1").arg(id()), QStringLiteral("-ocommand")}, QIODevice::ReadOnly);
-		if(!process.waitForStarted(2000) || !process.waitForReadyRead(2000) || !process.waitForFinished(2000) || process.exitCode() != 0)
-		{
-			throwError(QStringLiteral("GetProcessError"), tr("Failed to get the process command"));
-			return QString();
-		}
-
-		return QLatin1String(process.readAll().trimmed());
-#endif
+        try
+        {
+            return Backend::Instance::process().processCommand(mProcessId);
+        }
+        catch(const Backend::BackendError &e)
+        {
+            throwError(QStringLiteral("GetProcessCommandError"), tr("Failed to get the process command: %1").arg(e.what()));
+            return {};
+        }
 	}
 
 	ProcessHandle::Priority ProcessHandle::priority() const
 	{
-#ifdef Q_OS_WIN
-		HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, id());
-		if(!process)
-		{
-			throwError(QStringLiteral("OpenProcessError"), tr("Unable to open the process"));
-			return Normal;
-		}
-
-		int priority = GetPriorityClass(process);
-		CloseHandle(process);
-
-		switch(priority)
-		{
-		case ABOVE_NORMAL_PRIORITY_CLASS:
-			return AboveNormal;
-		case BELOW_NORMAL_PRIORITY_CLASS:
-			return BelowNormal;
-		case HIGH_PRIORITY_CLASS:
-			return High;
-		case IDLE_PRIORITY_CLASS:
-			return Idle;
-		case NORMAL_PRIORITY_CLASS:
-			return Normal;
-		case REALTIME_PRIORITY_CLASS:
-			return Realtime;
-		default:
-			throwError(QStringLiteral("GetPriorityClassError"), tr("Unable to retrieve the process priority"));
-			return Normal;
-		}
-#else
-		throwError(QStringLiteral("OperatingSystemError"), tr("This is not available under your operating system"));
-		return Normal;
-#endif
+        try
+        {
+            return static_cast<ProcessHandle::Priority>(Backend::Instance::process().processPriority(mProcessId));
+        }
+        catch(const Backend::BackendError &e)
+        {
+            throwError(QStringLiteral("GetProcessPriorityError"), tr("Failed to get the process priority: %1").arg(e.what()));
+            return {};
+        }
 	}
 }

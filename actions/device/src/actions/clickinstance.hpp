@@ -21,7 +21,6 @@
 #pragma once
 
 #include "actiontools/actioninstance.hpp"
-#include "../mousedevice.hpp"
 #include "tools/stringlistpair.hpp"
 
 namespace Actions
@@ -43,18 +42,14 @@ namespace Actions
 			InvalidActionException
 		};
 	
-		ClickInstance(const ActionTools::ActionDefinition *definition, QObject *parent = nullptr)
-			: ActionTools::ActionInstance(definition, parent)										{}
+        ClickInstance(const ActionTools::ActionDefinition *definition, QObject *parent = nullptr);
 	
         static Tools::StringListPair buttons;
         static Tools::StringListPair actions;
 	
 		void startExecution() override;
-		void stopLongTermExecution() override;
-	
+
 	private:
-		MouseDevice mMouseDevice;
-	
 		Q_DISABLE_COPY(ClickInstance)
 	};
 }

@@ -18,9 +18,9 @@
 	Contact: jmgr@jmgr.info
 */
 
+#include "backend/backend.hpp"
 #include "actiontools/actioninstance.hpp"
 #include "mainclass.hpp"
-#include "actiontools/qtsingleapplication/QtSingleApplication"
 #include "global.hpp"
 #include "actiontools/settings.hpp"
 #include "tools/languages.hpp"
@@ -47,7 +47,6 @@
 #undef signals
 #include <libnotify/notify.h>
 #define signals
-#include "actiontools/keysymhelper.hpp"
 #endif
 
 #ifdef Q_OS_WIN
@@ -99,10 +98,13 @@ static void createConsole()
 
 int main(int argc, char **argv)
 {
-	QtSingleApplication app(QStringLiteral("actiona-exec"), argc, argv);
+    QApplication app(argc, argv);
 	app.setQuitOnLastWindowClosed(false);
 
 	qAddPostRoutine(cleanup);
+
+    // Initialize the backend
+    Backend::Instance::initialize();
 
 #ifdef Q_OS_UNIX
     notify_init("Actiona executer");
@@ -125,7 +127,6 @@ int main(int argc, char **argv)
 	}
 
     QString locale = Tools::Languages::locale();
-
 
     Tools::Languages::installTranslator(QStringLiteral("qtbase"), locale);
     Tools::Languages::installTranslator(QStringLiteral("qtlocation"), locale);
@@ -189,15 +190,6 @@ int main(int argc, char **argv)
 
 	if(!optionsParser.isSet(QStringLiteral("nocodeqt")))
 		app.addLibraryPath(QApplication::applicationDirPath() + QStringLiteral("/code"));
-
-#ifdef Q_OS_UNIX
-	{
-#ifdef ACT_PROFILE
-        Tools::HighResolutionTimer timer(QStringLiteral("Load key codes"));
-#endif
-		ActionTools::KeySymHelper::loadKeyCodes();
-	}
-#endif
 
 	// Proxy settings
 	int proxyMode = ActionTools::Settings::PROXY_SYSTEM;

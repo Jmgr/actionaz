@@ -25,7 +25,6 @@ set(SOURCES
     ${SOURCES_PREFIX}/colorpositionparameterdefinition.cpp
     ${SOURCES_PREFIX}/consoletableview.cpp
     ${SOURCES_PREFIX}/consolewidget.cpp
-    ${SOURCES_PREFIX}/crossplatform.cpp
     ${SOURCES_PREFIX}/datacopyactioninstance.cpp
     ${SOURCES_PREFIX}/datetimeparameterdefinition.cpp
     ${SOURCES_PREFIX}/devicecopythread.cpp
@@ -47,11 +46,8 @@ set(SOURCES
     ${SOURCES_PREFIX}/keyboardkeyedit.cpp
     ${SOURCES_PREFIX}/keyboardkeyparameterdefinition.cpp
     ${SOURCES_PREFIX}/keyedit.cpp
-    ${SOURCES_PREFIX}/keyinput.cpp
-    ${SOURCES_PREFIX}/keymapper.cpp
     ${SOURCES_PREFIX}/keyparameterdefinition.cpp
     $<$<PLATFORM_ID:Linux>:${SOURCES_PREFIX}/keysym2ucs.cpp>
-    ${SOURCES_PREFIX}/keysymhelper.cpp
     ${SOURCES_PREFIX}/keywords.cpp
     ${SOURCES_PREFIX}/linecombobox.cpp
     ${SOURCES_PREFIX}/lineparameterdefinition.cpp
@@ -85,7 +81,6 @@ set(SOURCES
     ${SOURCES_PREFIX}/scriptlinemodel.cpp
     ${SOURCES_PREFIX}/subparameter.cpp
     ${SOURCES_PREFIX}/switchtextmodepushbutton.cpp
-    ${SOURCES_PREFIX}/targetwindow.cpp
     ${SOURCES_PREFIX}/textparameterdefinition.cpp
     ${SOURCES_PREFIX}/variablelineedit.cpp
     ${SOURCES_PREFIX}/variableparameterdefinition.cpp
@@ -110,11 +105,6 @@ set(SOURCES
     ${SOURCES_PREFIX}/qtimagefilters/punchfilter.cpp
     ${SOURCES_PREFIX}/qtimagefilters/qtimagefilter.cpp
     ${SOURCES_PREFIX}/qtimagefilters/qtimagefilterfactory.cpp
-    ${SOURCES_PREFIX}/qtsingleapplication/qtlocalpeer.cpp
-    ${SOURCES_PREFIX}/qtsingleapplication/qtlockedfile.cpp
-    $<$<PLATFORM_ID:Linux>:${SOURCES_PREFIX}/qtsingleapplication/qtlockedfile_unix.cpp>
-    $<$<PLATFORM_ID:Windows>:${SOURCES_PREFIX}/qtsingleapplication/qtlockedfile_win.cpp>
-    ${SOURCES_PREFIX}/qtsingleapplication/qtsingleapplication.cpp
 )
 
 set(HEADERS_PREFIX include/${PROJECT})
@@ -145,7 +135,6 @@ set(HEADERS
     ${HEADERS_PREFIX}/colorpositionparameterdefinition.hpp
     ${HEADERS_PREFIX}/consoletableview.hpp
     ${HEADERS_PREFIX}/consolewidget.hpp
-    ${HEADERS_PREFIX}/crossplatform.hpp
     ${HEADERS_PREFIX}/datacopyactioninstance.hpp
     ${HEADERS_PREFIX}/datetimeparameterdefinition.hpp
     ${HEADERS_PREFIX}/devicecopythread.hpp
@@ -168,11 +157,8 @@ set(HEADERS
     ${HEADERS_PREFIX}/keyboardkey.hpp
     ${HEADERS_PREFIX}/keyboardkeyparameterdefinition.hpp
     ${HEADERS_PREFIX}/keyedit.hpp
-    ${HEADERS_PREFIX}/keyinput.hpp
-    ${HEADERS_PREFIX}/keymapper.hpp
     ${HEADERS_PREFIX}/keyparameterdefinition.hpp
     $<$<PLATFORM_ID:Linux>:${HEADERS_PREFIX}/keysym2ucs.hpp>
-    ${HEADERS_PREFIX}/keysymhelper.hpp
     ${HEADERS_PREFIX}/keywords.hpp
     ${HEADERS_PREFIX}/linecombobox.hpp
     ${HEADERS_PREFIX}/linenumberarea.hpp
@@ -214,13 +200,13 @@ set(HEADERS
     ${HEADERS_PREFIX}/swappairs.hpp
     ${HEADERS_PREFIX}/switchtextmodepushbutton.hpp
     ${HEADERS_PREFIX}/systeminput.hpp
-    ${HEADERS_PREFIX}/targetwindow.hpp
     ${HEADERS_PREFIX}/textparameterdefinition.hpp
     ${HEADERS_PREFIX}/variablelineedit.hpp
     ${HEADERS_PREFIX}/variableparameterdefinition.hpp
     ${HEADERS_PREFIX}/windowedit.hpp
     ${HEADERS_PREFIX}/windowhandle.hpp
     ${HEADERS_PREFIX}/windowparameterdefinition.hpp
+    ${HEADERS_PREFIX}/actiontools_global.hpp
     ${HEADERS_PREFIX}/code/algorithms.hpp
     ${HEADERS_PREFIX}/code/codeclass.hpp
     ${HEADERS_PREFIX}/code/codetools.hpp
@@ -238,9 +224,6 @@ set(HEADERS
     ${HEADERS_PREFIX}/qtimagefilters/punchfilter.h
     ${HEADERS_PREFIX}/qtimagefilters/qtimagefilter.h
     ${HEADERS_PREFIX}/qtimagefilters/qtmatrix.h
-    ${HEADERS_PREFIX}/qtsingleapplication/qtlocalpeer.h
-    ${HEADERS_PREFIX}/qtsingleapplication/qtlockedfile.h
-    ${HEADERS_PREFIX}/qtsingleapplication/qtsingleapplication.h
 )
 
 set(QRC ${PROJECT}.qrc)
@@ -252,11 +235,6 @@ add_library(${PROJECT} SHARED
 )
 
 add_dependencies(${PROJECT} tools)
-
-if(UNIX)
-    include(FindPkgConfig)
-    pkg_search_module(LIBXTST REQUIRED xtst)
-endif()
 
 target_compile_definitions(${PROJECT} PRIVATE ACTIONTOOLS_LIBRARY)
 
@@ -271,23 +249,23 @@ target_include_directories(${PROJECT}
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/../backend/include
         ${CMAKE_CURRENT_SOURCE_DIR}/../tools/include
-        ${LIBXTST_INCLUDE_DIRS}
         ${OpenCV_INCLUDE_DIRS}
 )
 
 target_link_libraries(
     ${PROJECT}
+    backend
     tools
     Qt5::Script
     Qt5::XmlPatterns
     Qt5::Widgets
-    ${LIBXTST_LIBRARIES}
     ${OpenCV_LIBS}
     $<$<PLATFORM_ID:Windows>:Psapi>
 )
 
-if(UNIX)
+if(UNIX AND NOT APPLE)
     find_package(Qt5 ${ACT_MINIMUM_QT_VERSION} COMPONENTS X11Extras REQUIRED)
     target_link_libraries(${PROJECT} Qt5::X11Extras)
 endif()

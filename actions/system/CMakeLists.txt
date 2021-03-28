@@ -2,7 +2,6 @@ set(PROJECT actionpacksystem)
 
 set(SOURCES_PREFIX src)
 set(SOURCES
-    ${SOURCES_PREFIX}/systemsession.cpp
     ${SOURCES_PREFIX}/actions/findimagedefinition.cpp
     ${SOURCES_PREFIX}/actions/findimageinstance.cpp
     ${SOURCES_PREFIX}/actions/killprocessinstance.cpp
@@ -21,7 +20,7 @@ set(SOURCES
     ${SOURCES_PREFIX}/systeminfo/qstorageinfo.cpp
 )
 
-if(UNIX)
+if(UNIX AND NOT APPLE)
     list(APPEND SOURCES
         ${SOURCES_PREFIX}/systeminfo/linux/qbatteryinfo_linux.cpp
         ${SOURCES_PREFIX}/systeminfo/linux/qdeviceinfo_linux.cpp
@@ -47,7 +46,6 @@ endif()
 set(HEADERS_PREFIX src)
 set(HEADERS
     ${HEADERS_PREFIX}/actionpacksystem.hpp
-    ${HEADERS_PREFIX}/systemsession.hpp
     ${HEADERS_PREFIX}/actions/commanddefinition.hpp
     ${HEADERS_PREFIX}/actions/commandinstance.hpp
     ${HEADERS_PREFIX}/actions/detachedcommanddefinition.hpp
@@ -81,7 +79,7 @@ set(HEADERS
     ${HEADERS_PREFIX}/systeminfo/qsysteminfoglobal_p.h
 )
 
-if(UNIX)
+if(UNIX AND NOT APPLE)
     list(APPEND HEADERS
         ${HEADERS_PREFIX}/systeminfo/linux/qbatteryinfo_linux_p.h
         ${HEADERS_PREFIX}/systeminfo/linux/qdeviceinfo_linux_p.h
@@ -114,7 +112,7 @@ add_library(${PROJECT} SHARED
 
 add_dependencies(${PROJECT} tools actiontools)
 
-if(UNIX)
+if(UNIX AND NOT APPLE)
     include(FindPkgConfig)
     pkg_search_module(LIBNOTIFY REQUIRED libnotify)
     pkg_search_module(BLUEZ REQUIRED bluez)
@@ -146,6 +144,7 @@ target_include_directories(${PROJECT}
 )
 
 target_link_libraries(${PROJECT}
+    tools
     actiontools
     Qt5::Network
     Qt5::Script

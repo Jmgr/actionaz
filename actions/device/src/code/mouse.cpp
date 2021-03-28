@@ -20,6 +20,7 @@
 
 #include "mouse.hpp"
 #include "actiontools/code/point.hpp"
+#include "backend/mouse.hpp"
 
 #include <QScriptValueIterator>
 
@@ -27,25 +28,7 @@ namespace Code
 {
 	QScriptValue Mouse::constructor(QScriptContext *context, QScriptEngine *engine)
 	{
-		auto mouse = new Mouse;
-
-		QScriptValueIterator it(context->argument(0));
-
-		while(it.hasNext())
-		{
-			it.next();
-
-			if(it.name() == QLatin1String("onMotion"))
-				mouse->mOnMotion = it.value();
-			else if(it.name() == QLatin1String("onWheel"))
-				mouse->mOnWheel = it.value();
-			else if(it.name() == QLatin1String("onButtonPressed"))
-				mouse->mOnButtonPressed = it.value();
-			else if(it.name() == QLatin1String("onButtonReleased"))
-				mouse->mOnButtonReleased = it.value();
-		}
-
-		return CodeClass::constructor(mouse, context, engine);
+        return CodeClass::constructor(new Mouse, context, engine);
 	}
 	
 	Mouse::Mouse()
@@ -57,74 +40,112 @@ namespace Code
 
 	QScriptValue Mouse::position() const
 	{
-		return Point::constructor(mMouseDevice.cursorPosition(), engine());
+        auto &mouse = Backend::Instance::mouse();
+
+        try
+        {
+            return Point::constructor(mouse.cursorPosition(), engine());
+        }
+        catch(const Backend::BackendError &e)
+        {
+            throwError(QStringLiteral("MouseError"), e.what());
+            return thisObject();
+        }
 	}
 
 	QScriptValue Mouse::move() const
 	{
-		mMouseDevice.setCursorPosition(Point::parameter(context(), engine()));
+        auto &mouse = Backend::Instance::mouse();
+
+        try
+        {
+            mouse.setCursorPosition(Point::parameter(context(), engine()));
+        }
+        catch(const Backend::BackendError &e)
+        {
+            throwError(QStringLiteral("MouseError"), e.what());
+        }
 		
 		return thisObject();
 	}
 	
 	bool Mouse::isButtonPressed(Button button) const
 	{
-		return mMouseDevice.isButtonPressed(static_cast<MouseDevice::Button>(button));
+        auto &mouse = Backend::Instance::mouse();
+
+        try
+        {
+            return mouse.isButtonPressed(static_cast<Backend::Mouse::Button>(button));
+        }
+        catch(const Backend::BackendError &e)
+        {
+            throwError(QStringLiteral("MouseError"), e.what());
+            return false;
+        }
 	}
 	
 	QScriptValue Mouse::press(Button button)
 	{
-		if(!mMouseDevice.pressButton(static_cast<MouseDevice::Button>(button)))
-			throwError(QStringLiteral("PressButtonError"), tr("Unable to press the button"));
+        auto &mouse = Backend::Instance::mouse();
+
+        try
+        {
+            mouse.pressButton(static_cast<Backend::Mouse::Button>(button), true);
+        }
+        catch(const Backend::BackendError &e)
+        {
+            throwError(QStringLiteral("MouseError"), e.what());
+        }
 		
 		return thisObject();
 	}
 
 	QScriptValue Mouse::release(Button button)
 	{
-		if(!mMouseDevice.releaseButton(static_cast<MouseDevice::Button>(button)))
-			throwError(QStringLiteral("ReleaseButtonError"), tr("Unable to release the button"));
-		
+        auto &mouse = Backend::Instance::mouse();
+
+        try
+        {
+            mouse.pressButton(static_cast<Backend::Mouse::Button>(button), false);
+        }
+        catch(const Backend::BackendError &e)
+        {
+            throwError(QStringLiteral("MouseError"), e.what());
+        }
+
 		return thisObject();
 	}
 
 	QScriptValue Mouse::click(Button button)
 	{
-		if(!mMouseDevice.buttonClick(static_cast<MouseDevice::Button>(button)))
-			throwError(QStringLiteral("ClickError"), tr("Unable to emulate a button click"));
-		
+        auto &mouse = Backend::Instance::mouse();
+
+        try
+        {
+            mouse.pressButton(static_cast<Backend::Mouse::Button>(button), true);
+            mouse.pressButton(static_cast<Backend::Mouse::Button>(button), false);
+        }
+        catch(const Backend::BackendError &e)
+        {
+            throwError(QStringLiteral("MouseError"), e.what());
+        }
+
 		return thisObject();
 	}
 	
 	QScriptValue Mouse::wheel(int intensity) const
 	{
-		if(!mMouseDevice.wheel(intensity))
-			throwError(QStringLiteral("WheelError"), tr("Unable to emulate the wheel"));
+        auto &mouse = Backend::Instance::mouse();
+
+        try
+        {
+            mouse.rotateWheel(intensity);
+        }
+        catch(const Backend::BackendError &e)
+        {
+            throwError(QStringLiteral("MouseError"), e.what());
+        }
 		
 		return thisObject();
-	}
-
-	void Mouse::mouseMotion(int x, int y)
-	{
-		if(mOnMotion.isValid())
-			mOnMotion.call(thisObject(), QScriptValueList() << x << y);
-	}
-
-	void Mouse::mouseWheel(int intensity)
-	{
-		if(mOnWheel.isValid())
-			mOnWheel.call(thisObject(), QScriptValueList() << intensity);
-	}
-
-	void Mouse::mouseButtonPressed(ActionTools::SystemInput::Button button)
-	{
-		if(mOnButtonPressed.isValid())
-			mOnButtonPressed.call(thisObject(), QScriptValueList() << button);
-	}
-
-	void Mouse::mouseButtonReleased(ActionTools::SystemInput::Button button)
-	{
-		if(mOnButtonReleased.isValid())
-			mOnButtonReleased.call(thisObject(), QScriptValueList() << button);
 	}
 }

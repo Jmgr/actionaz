@@ -19,6 +19,7 @@
 */
 
 #include "cursorpathinstance.hpp"
+#include "backend/mouse.hpp"
 
 namespace Actions
 {
@@ -37,5 +38,119 @@ namespace Actions
             QStringLiteral(QT_TRANSLATE_NOOP("CursorPathInstance::buttons", "Right"))
         }
     };
+
+    CursorPathInstance::CursorPathInstance(const ActionTools::ActionDefinition *definition, QObject *parent)
+        : ActionTools::ActionInstance(definition, parent),
+        mCurrentPoint(0),
+        mButton(NoButton)
+    {
+        mMoveTimer.setTimerType(Qt::PreciseTimer);
+
+        connect(&mMoveTimer, &QTimer::timeout, this, &CursorPathInstance::moveToNextPosition);
+    }
+
+    void CursorPathInstance::startExecution()
+    {
+        auto &mouse = Backend::Instance::mouse();
+
+        bool ok = true;
+
+        mPositionOffset = evaluatePoint(ok, QStringLiteral("positionOffset"));
+        mButton = evaluateListElement<Button>(ok, buttons, QStringLiteral("button"));
+        mPoints = evaluatePolygon(ok, QStringLiteral("path"));
+
+        if(!ok)
+            return;
+
+        try
+        {
+            mMoveTimer.start(25);
+
+            mCurrentPoint = 0;
+            mouse.setCursorPosition(mPoints.at(mCurrentPoint) + mPositionOffset);
+            ++mCurrentPoint;
+
+            switch(mButton)
+            {
+            case NoButton:
+                break;
+            case LeftButton:
+                mouse.pressButton(Backend::Mouse::Button::Left, true);
+                break;
+            case MiddleButton:
+                mouse.pressButton(Backend::Mouse::Button::Middle, true);
+                break;
+            case RightButton:
+                mouse.pressButton(Backend::Mouse::Button::Right, true);
+                break;
+            }
+        }
+        catch(const Backend::BackendError &e)
+        {
+            emit executionException(FailedToSendInputException, e.what());
+            return;
+        }
+    }
+
+    void CursorPathInstance::stopExecution()
+    {
+        releaseButton();
+
+        mMoveTimer.stop();
+    }
+
+    void CursorPathInstance::moveToNextPosition()
+    {
+        auto &mouse = Backend::Instance::mouse();
+
+        if(mCurrentPoint >= mPoints.size())
+        {
+            releaseButton();
+
+            executionEnded();
+            mMoveTimer.stop();
+        }
+        else
+        {
+            try
+            {
+                mouse.setCursorPosition(mPoints.at(mCurrentPoint) + mPositionOffset);
+                ++mCurrentPoint;
+            }
+            catch(const Backend::BackendError &e)
+            {
+                emit executionException(FailedToSendInputException, e.what());
+                return;
+            }
+        }
+    }
+
+    void CursorPathInstance::releaseButton()
+    {
+        auto &mouse = Backend::Instance::mouse();
+
+        try
+        {
+            switch(mButton)
+            {
+            case NoButton:
+                break;
+            case LeftButton:
+                mouse.pressButton(Backend::Mouse::Button::Left, false);
+                break;
+            case MiddleButton:
+                mouse.pressButton(Backend::Mouse::Button::Middle, false);
+                break;
+            case RightButton:
+                mouse.pressButton(Backend::Mouse::Button::Right, false);
+                break;
+            }
+        }
+        catch(const Backend::BackendError &e)
+        {
+            emit executionException(FailedToSendInputException, e.what());
+            return;
+        }
+    }
 }
 

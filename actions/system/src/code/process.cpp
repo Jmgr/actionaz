@@ -21,17 +21,11 @@
 #include "process.hpp"
 #include "actiontools/code/processhandle.hpp"
 #include "actiontools/code/rawdata.hpp"
+#include "backend/process.hpp"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QScriptValueIterator>
-
-#ifdef Q_OS_WIN
-#include <Windows.h>
-#endif
-
-#ifdef Q_OS_UNIX
-#include <unistd.h>
-#endif
 
 namespace Code
 {
@@ -72,7 +66,17 @@ namespace Code
 	{
 		Q_UNUSED(context)
 
-		QList<int> processesList = ActionTools::CrossPlatform::runningProcesses();
+        QList<int> processesList;
+
+        try
+        {
+            processesList = Backend::Instance::process().runningProcesses();
+        }
+        catch(const Backend::BackendError &e)
+        {
+            throwError(context, engine, QStringLiteral("ListProcessError"), tr("Failed to list processes: %1").arg(e.what()));
+            return engine->undefinedValue();
+        }
 
 		QScriptValue back = engine->newArray(processesList.count());
 
@@ -120,11 +124,7 @@ namespace Code
 	{
 		Q_UNUSED(context)
 
-#ifdef Q_OS_WIN
-		return ProcessHandle::constructor(GetCurrentProcessId(), engine);
-#else
-		return ProcessHandle::constructor(getpid(), engine);
-#endif
+        return ProcessHandle::constructor(QCoreApplication::applicationPid(), engine);
 	}
 
 	Process::Process()
@@ -146,11 +146,7 @@ namespace Code
 
 	int Process::id() const
 	{
-#ifdef Q_OS_WIN
-            return mProcess->pid()->dwProcessId;
-#else
-            return mProcess->processId();
-#endif
+        return mProcess->processId();
 	}
 
 	QScriptValue Process::start()

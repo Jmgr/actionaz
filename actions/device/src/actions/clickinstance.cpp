@@ -20,6 +20,7 @@
 
 #include "clickinstance.hpp"
 #include "actiontools/consolewidget.hpp"
+#include "backend/mouse.hpp"
 
 #include <QPoint>
 #include <QTimer>
@@ -52,14 +53,21 @@ namespace Actions
             QStringLiteral(QT_TRANSLATE_NOOP("ClickInstance::actions", "Release"))
         }
     };
+
+    ClickInstance::ClickInstance(const ActionTools::ActionDefinition *definition, QObject *parent)
+        : ActionTools::ActionInstance(definition, parent)
+    {
+    }
 	
 	void ClickInstance::startExecution()
 	{
+        auto &mouse = Backend::Instance::mouse();
+
 		bool ok = true;
         bool isPositionEmpty = false;
 	
 		auto action = evaluateListElement<Action>(ok, actions, QStringLiteral("action"), QStringLiteral("value"));
-		auto button = evaluateListElement<MouseDevice::Button>(ok, buttons, QStringLiteral("button"), QStringLiteral("value"));
+        auto button = evaluateListElement<Backend::Mouse::Button>(ok, buttons, QStringLiteral("button"), QStringLiteral("value"));
 		QPoint position = evaluatePoint(ok, QStringLiteral("position"), QStringLiteral("value"), &isPositionEmpty);
 		QPoint positionOffset = evaluatePoint(ok, QStringLiteral("positionOffset"));
 		int amount = evaluateInteger(ok, QStringLiteral("amount"));
@@ -78,47 +86,38 @@ namespace Actions
 			return;
 		}
 
-		QPoint previousPosition = mMouseDevice.cursorPosition();
-		
-        if(!isPositionEmpty)
+        try
         {
-            position += positionOffset;
-            mMouseDevice.setCursorPosition(position);
-        }
-	
-		for(int i = 0; i < amount; ++i)
-		{
-			if(action == ClickAction || action == PressAction)
-			{
-				if(!mMouseDevice.pressButton(button))
-				{
-					emit executionException(FailedToSendInputException, tr("Unable to emulate click: button event failed"));
-					return;
-				}
-			}
-			if(action == ClickAction || action == ReleaseAction)
-			{
-				if(!mMouseDevice.releaseButton(button))
-				{
-					emit executionException(FailedToSendInputException, tr("Unable to emulate click: button event failed"));
-					return;
-				}
-			}
-		}
+            QPoint previousPosition = mouse.cursorPosition();
 
-		if(!isPositionEmpty && restoreCursorPosition)
-		{
-			mMouseDevice.setCursorPosition(previousPosition);
-		}
+            if(!isPositionEmpty)
+            {
+                position += positionOffset;
+                mouse.setCursorPosition(position);
+            }
+
+            for(int i = 0; i < amount; ++i)
+            {
+                bool press = (action == ClickAction || action == PressAction);
+                bool release = (action == ClickAction || action == ReleaseAction);
+                if(press)
+                    mouse.pressButton(button, true);
+                if(release)
+                    mouse.pressButton(button, false);
+            }
+
+            if(!isPositionEmpty && restoreCursorPosition)
+                mouse.setCursorPosition(previousPosition);
+        }
+        catch(const Backend::BackendError &e)
+        {
+            emit executionException(FailedToSendInputException, e.what());
+            return;
+        }
 	
         QTimer::singleShot(1, this, [this]
         {
             executionEnded();
         });
-	}
-
-	void ClickInstance::stopLongTermExecution()
-	{
-		mMouseDevice.reset();
 	}
 }

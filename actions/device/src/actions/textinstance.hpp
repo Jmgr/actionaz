@@ -21,7 +21,6 @@
 #pragma once
 
 #include "actiontools/actioninstance.hpp"
-#include "../keyboarddevice.hpp"
 
 class QTimer;
 
@@ -40,14 +39,12 @@ namespace Actions
 		TextInstance(const ActionTools::ActionDefinition *definition, QObject *parent = nullptr);
 	
 		void startExecution() override;
-		void stopExecution() override;
-		void stopLongTermExecution() override;
+        void stopExecution() override;
 
 	private slots:
 		void pressNextKey();
 	
-	private:
-		KeyboardDevice mKeyboardDevice;
+    private:
 		QTimer *mTimer;
 		QString mText;
         int mCurrentCharacter;

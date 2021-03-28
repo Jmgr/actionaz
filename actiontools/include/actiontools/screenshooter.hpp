@@ -31,7 +31,7 @@ namespace ActionTools
 {
     class WindowHandle;
 
-    class ACTIONTOOLSSHARED_EXPORT ScreenShooter
+    class ACTIONTOOLSSHARED_EXPORT ScreenShooter // TODO: move to backend
     {
     public:
         static QPixmap captureScreen(int screenIndex);
